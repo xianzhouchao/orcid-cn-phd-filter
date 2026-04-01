@@ -6,7 +6,7 @@
 
 1. **筛中国人**：任意一条记录 `Country=CN` 的 ORCID 全部保留
 2. **筛博士**：`Title_Degree` 包含博士相关关键词（ph.d / doctorate / 博士 等）
-3. **筛青年**：含博士记录的 `Start_Year >= PHD_YEAR_MIN`（默认 2000，可修改）
+3. **筛青年**：含博士记录的 `End_Year >= PHD_YEAR_MIN`（默认 2016，即2016年及以后博士毕业，可修改）
 
 ## 使用方法
 
@@ -41,7 +41,7 @@ INPUT_FILE = r"/Users/yourname/Downloads/test_raw_data.csv"
 同样在 `clean.py` 顶部，可以修改：
 
 ```python
-PHD_YEAR_MIN = 2000    # 博士 Start_Year >= 此值才算"青年"，按需修改
+PHD_YEAR_MIN = 2016    # 博士 End_Year（毕业年）>= 此值才算"青年"，按需修改
 ```
 
 ### 第四步：运行
