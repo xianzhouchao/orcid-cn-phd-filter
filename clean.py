@@ -21,7 +21,7 @@ import pandas as pd
 INPUT_FILE   = r"在这里填入你的 CSV 文件路径"   # ★ 修改这里
 OUTPUT_DIR   = os.path.join(os.path.dirname(__file__), "output")
 CHUNK_SIZE   = 100_000          # 每次读取行数，内存不足可调小
-PHD_YEAR_MIN = 2000             # ★ 博士 Start_Year >= 此值才算"青年"，按需修改
+PHD_YEAR_MIN = 2016             # ★ 博士 End_Year >= 此值才算"青年"（毕业年），按需修改
 
 # 博士关键词（大小写不敏感模糊匹配）
 PHD_KEYWORDS = [
@@ -65,7 +65,7 @@ pattern = "|".join(PHD_KEYWORDS)
 phd_orcids = set()
 degree_rows = []   # 博士那一行，用于核查
 
-for chunk in pd.read_csv(INPUT_FILE, usecols=["ORCID", "Title_Degree", "Start_Year"],
+for chunk in pd.read_csv(INPUT_FILE, usecols=["ORCID", "Title_Degree", "End_Year"],
                          encoding="utf-8", chunksize=CHUNK_SIZE,
                          on_bad_lines="skip"):
     # 只看 CN 的 ORCID
@@ -75,8 +75,8 @@ for chunk in pd.read_csv(INPUT_FILE, usecols=["ORCID", "Title_Degree", "Start_Ye
 
     # 博士关键词匹配
     is_phd = chunk["Title_Degree"].astype(str).str.contains(pattern, case=False, na=False, regex=True)
-    # 年份筛选
-    year_ok = pd.to_numeric(chunk["Start_Year"], errors="coerce") >= PHD_YEAR_MIN
+    # 毕业年份筛选（End_Year >= PHD_YEAR_MIN）
+    year_ok = pd.to_numeric(chunk["End_Year"], errors="coerce") >= PHD_YEAR_MIN
 
     matched = chunk[is_phd & year_ok]
     phd_orcids.update(matched["ORCID"].dropna().unique())
@@ -100,6 +100,13 @@ for chunk in pd.read_csv(INPUT_FILE, encoding="utf-8",
 df_all = pd.concat(all_records, ignore_index=True) if all_records else pd.DataFrame()
 df_degree = pd.concat(degree_rows, ignore_index=True) if degree_rows else pd.DataFrame()
 
+# 删除关键列有缺失的行
+REQUIRED_COLS = ["ORCID", "Category", "Title_Degree", "Department",
+                 "Organization", "City", "Country", "Start_Year"]
+before = len(df_all)
+df_all = df_all.dropna(subset=REQUIRED_COLS)
+print(f"  删除缺失行: {before - len(df_all):,} 行，剩余 {len(df_all):,} 行")
+
 out_all    = os.path.join(OUTPUT_DIR, "cn_phd_all_records.csv")
 out_degree = os.path.join(OUTPUT_DIR, "cn_phd_degree_rows.csv")
 out_report = os.path.join(OUTPUT_DIR, "report.txt")
@@ -112,8 +119,9 @@ df_degree.to_csv(out_degree, index=False, encoding="utf-8-sig")
 # ----------------------------------------------------------
 report = f"""ORCID 数据清洗报告
 {'='*40}
-输入文件   : {INPUT_FILE}
-PHD_YEAR_MIN: {PHD_YEAR_MIN}
+输入文件      : {INPUT_FILE}
+博士毕业年 >= : {PHD_YEAR_MIN}
+必填列        : {REQUIRED_COLS}
 
 原始总行数        : {total_rows:,}
 含 CN 记录的 ORCID: {len(cn_orcids):,}
@@ -121,7 +129,7 @@ PHD_YEAR_MIN: {PHD_YEAR_MIN}
 
 输出文件：
   {out_all}
-    行数: {len(df_all):,}
+    行数（删缺失后）: {len(df_all):,}
   {out_degree}
     行数: {len(df_degree):,}
 """
